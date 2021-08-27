@@ -1,5 +1,6 @@
 # Standard Library Imports
-import time, shutil, textwrap, math
+import time, shutil, textwrap
+from datetime import datetime, timedelta
 import curses
 
 # Local Imports
@@ -9,16 +10,30 @@ class App:
     # Layout
     size = shutil.get_terminal_size()
     margin_x = 2
-    textbox_width = 40
+    textbox_width = 80
     textbox_height = 3
-    
-    # App State - Store Input and other Data
     title = "Python Typer"
-
+    
+    ### App State - Store Input and other Data ###
+    # Game Text
     text = utils.lipsum
     typed = ""
-
+    
+    # Footer
     statusbar = ""
+
+    # Game Progress
+    started = False
+    ended = False
+    startTime = None
+    endTime = None
+
+    # Stats
+    stats = {
+        'timeTaken': 0,
+        'wpm': 0,
+        'mistakes': 0
+    }
 
     def __init__(self):
         # Check if terminal size is big enough
@@ -38,7 +53,7 @@ class App:
         # Define Color Pairs
         curses.init_pair(1, curses.COLOR_YELLOW, curses.COLOR_BLACK) # Title
         curses.init_pair(10, curses.COLOR_GREEN, curses.COLOR_BLACK) # Correct Text
-        curses.init_pair(11, curses.COLOR_RED, curses.COLOR_BLACK) # Wrong Text
+        curses.init_pair(11, curses.COLOR_BLACK, curses.COLOR_RED) # Wrong Text
         curses.init_pair(40, curses.COLOR_BLACK, curses.COLOR_WHITE) # Header & Footer
         curses.init_pair(41, curses.COLOR_WHITE, curses.COLOR_WHITE) # Border
 
@@ -64,6 +79,16 @@ class App:
             for i in range(len(title_ascii)):
                 self.centerText(title_ascii[i], 1 + i, curses.color_pair(1) | curses.A_BOLD)
 
+            # Check if game has ended
+            # If yes, show game stats
+            if self.ended:
+                self.centerText("Time Taken: " + str(self.stats['timeTaken']) + "s", 13)
+                self.centerText("WPM: " + str(self.stats['wpm']), 14)
+                self.centerText("Mistakes: " + str(self.stats['mistakes']), 15)
+                self.screen.refresh()
+                time.sleep(5)
+                break
+
             # Text Holder
             holder_x = (self.size.columns - self.textbox_width) // 2
             self.textBox(self.textbox_height, self.textbox_width, holder_x, 13, curses.color_pair(41))
@@ -87,11 +112,15 @@ class App:
 
         # If any other valid ASCII key is pressed, append it to typed text
         elif chr(key).isascii() and (not chr(key) == "\n"):
+            if not self.handleTextInput():
+                return
             self.typed += chr(key)
             self.statusbar = "KEY: " + chr(key)
 
         # If BACKSPACE is pressed, remove last character from type text
         elif key == curses.KEY_BACKSPACE:
+            if not self.handleTextInput():
+                return
             self.typed = self.typed[:-1]
             self.statusbar = "BACKSPACE"
 
@@ -118,6 +147,7 @@ class App:
             self.screen.addstr(y + i, x - 2, "==", attr) # Left Border
             self.screen.addstr(y + i, x + width + 1, "==", attr) # Right Border
 
+    # Render Game Text
     def renderText(self, height: int, width: int, x: int, y: int):
         typ_lines = textwrap.wrap(self.typed, width)
         txt_lines = textwrap.wrap(self.text, width)
@@ -129,8 +159,10 @@ class App:
         elif len(txt_lines) - lines_typed < height:
             txt_lines = txt_lines[-height:]
             typ_lines = typ_lines[-(len(txt_lines) - lines_typed - 1):]
+        else:
+            txt_lines = txt_lines[:height]
 
-        for ch_y in range(height):
+        for ch_y in range(len(txt_lines)):
             for ch_x in range(len(txt_lines[ch_y])):
                 # Determine Color of Text
                 color = 0
@@ -147,7 +179,46 @@ class App:
                 # Render Character
                 self.screen.addch(y + ch_y, x + ch_x, txt_lines[ch_y][ch_x], color)
 
+    # Start Game
+    def startGame(self):
+        self.started = True
+        self.startTime = datetime.now()
+    
+    # End Game
+    def endGame(self):
+        self.ended = True
+        self.endTime = datetime.now()
+        self.calcStats()
 
+    # Calculate Stats
+    def calcStats(self):
+        self.stats['timeTaken'] = round((self.endTime - self.startTime).total_seconds())
+        self.stats['wpm'] = int(len(self.text.split(" ")) // (self.stats['timeTaken'] / 60))
 
+        for i in range(len(self.text)):
+            if not self.text[i] == self.typed[i]:
+                self.stats['mistakes'] += 1
+
+    # Handle game input
+    # If returns True, accept user input
+    # If returns False, ignore user input
+    def handleTextInput(self):
+        # Start the game if it hasn't been started
+        if not self.started:
+            self.startGame()
+            return True
+
+        # Check if game is already ended
+        if self.ended:
+            return False
+
+        # Check if game should be ended
+        if len(self.typed) == len(self.text):
+            self.endGame()
+            return False
+
+        return True
+
+        
 
 App()
