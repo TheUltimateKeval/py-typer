@@ -10,13 +10,13 @@ class App:
     # Layout
     size = shutil.get_terminal_size()
     margin_x = 2
-    textbox_width = 80
+    textbox_width = size.columns // 2
     textbox_height = 3
     title = "Python Typer"
     
     ### App State - Store Input and other Data ###
     # Game Text
-    text = utils.lipsum
+    text = utils.textGenerator()
     typed = ""
     
     # Footer
@@ -95,6 +95,14 @@ class App:
 
             # Text Renderer
             self.renderText(self.textbox_height, self.textbox_width, holder_x, 13)
+
+            # Progress Bar
+            progress = min(len(self.typed) / len(self.text), 1)
+            progress_box = round(progress * self.textbox_width)
+            progress_percent = round(progress * 100)
+
+            self.centerText("[" + ("=" * progress_box) + (" " * (self.textbox_width - progress_box)) + "]", 15 + self.textbox_height, curses.color_pair(10))
+            self.centerText(str(progress_percent) + "%", 15 + self.textbox_height)
 
             # Update Screen
             self.screen.refresh()
