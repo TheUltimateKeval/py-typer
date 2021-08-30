@@ -62,6 +62,10 @@ class App:
             ### Rendering Components ###
             self.screen.clear()
 
+            # Check if game should be ended
+            if len(self.typed) == len(self.text):
+                self.endGame()
+
             # Header & Footer
             self.screen.addstr(0, 0, '=' * self.size.columns, curses.color_pair(40))
             
@@ -220,13 +224,6 @@ class App:
         if self.ended:
             return False
 
-        # Check if game should be ended
-        if len(self.typed) == len(self.text):
-            self.endGame()
-            return False
-
         return True
-
-        
 
 App()
